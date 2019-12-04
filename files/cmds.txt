@@ -1,0 +1,102 @@
+When deploy a deep learning vm on google cloud, choose image with cuda 10.0, which will make sure the nvidia driver and nvidia-docker is installed already.
+
+Login google cloud
+gcloud beta compute --project "copper-triumph-248309" ssh --zone "us-west1-b" "tensorflow-1-vm"
+
+gcloud beta compute --project "copper-triumph-248309" scp --recurse --zone "us-west1-b" "tensorflow-1-vm:/home/royhuang/projects/transformers/output/checkpoint-1000" . 
+
+There is no necessary to install nvidia cuda, cudnn
+	Install nvidia driver
+	https://wiki.debian.org/NvidiaGraphicsDrivers
+	# upload driver to gcloud and run it.
+
+	Install cuda
+	wget http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run
+	sudo sh cuda_10.2.89_440.33.01_linux.run
+
+	# set up environment for
+	echo "export PATH=$PATH:/usr/local/cuda-10.2/bin
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda-10.2/lib64
+	" >> ~/.bashrc
+
+	Install cudnn
+	# upload cdnn
+	Unzip the cuDNN package.
+	$ tar -xzvf cudnn-10.2-linux-x64-v7.6.5.32.tgz
+	Copy the following files into the CUDA Toolkit directory, and change the file permissions.
+	$ sudo cp cuda/include/cudnn.h /usr/local/cuda/include
+	$ sudo cp cuda/lib64/libcudnn* /usr/local/cuda/lib64
+	$ sudo chmod a+r /usr/local/cuda/include/cudnn.h /usr/local/cuda/lib64/libcudnn*
+
+
+	Install nvidia-docker
+
+	# Add the package repositories
+	$ distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+	$ curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+	$ curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+
+	$ sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+	$ sudo systemctl restart docker
+
+#### Test nvidia-smi with the latest official CUDA image
+$ docker run --gpus all nvidia/cuda:10.0-base nvidia-smi
+
+Run the deepo image
+$ docker run --gpus all -it -v /home/royhuang/projects:/projects ufoym/deepo:py36-cu100 bash
+
+Attache to a running container
+$ docker exec -it container_id /bin/bash
+
+Start a stopped container
+$ docker start container_name
+
+Update: As mentioned in below answers Ctrl+p, Ctrl+q will now turn interactive mode into daemon mode.
+
+python run_squad.py \
+  --model_type bert \
+  --model_name_or_path bert-base-cased \
+  --version_2_with_negative \
+  --do_train \
+  --do_eval \
+  --do_lower_case \
+  --train_file $SQUAD_DIR/train-v2.0.json \
+  --predict_file $SQUAD_DIR/dev-v2.0.json \
+  --per_gpu_train_batch_size 12 \
+  --learning_rate 3e-5 \
+  --num_train_epochs 2.0 \
+  --max_seq_length 384 \
+  --doc_stride 128 \
+  --output_dir /projects/transformers/output
+
+python my_squad.py --model_type bert --model_name_or_path bert-base-cased --version_2_with_negative --do_train --do_eval --do_lower_case --train_file $SQUAD_DIR/train-v2.0.json --predict_file $SQUAD_DIR/dev-v2.0.json --per_gpu_train_batch_size 12 --learning_rate 3e-5 --num_train_epochs 2.0 --max_seq_length 384 --doc_stride 128 --output_dir /projects/transformers/output
+
+python my_squad.py --model_type bert --model_name_or_path /projects/transformers/first-2000/ --tokenizer_name bert-base-cased --version_2_with_negative --do_train --do_eval --do_lower_case --train_file /projects/transformers/data/train-v2.0.json --predict_file /projects/transformers/data/dev-v2.0.json --per_gpu_train_batch_size 12 --learning_rate 3e-5 --num_train_epochs 2.0 --max_seq_length 384 --doc_stride 128 --output_dir /projects/transformers/output
+
+python my_squad.py --model_type bert --model_name_or_path bert-base-uncased --tokenizer_name bert-base-uncased --version_2_with_negative --do_train --do_eval --do_lower_case --train_file /projects/transformers/data/train-v2.0.json --predict_file /projects/transformers/data/dev-v2.0.json --per_gpu_train_batch_size 12 --learning_rate 3e-5 --num_train_epochs 2.0 --max_seq_length 384 --doc_stride 128 --output_dir /projects/transformers/output
+
+Check the version of cuda
+$ nvcc --version
+
+
+pull docker with a tag
+$ docker pull ufoym/deepo:py36-cu100
+
+
+ssh me@myserver.com
+screen               #start a screen session
+drun-a-long-process
+CTRL+a , d to detatch from your screen session
+
+exit                 #disconnect from the server, while run-a-long-process continues
+When you come back to your laptop:
+
+ssh me@myserver.com
+screen -r            #resume the screen session
+
+
+
+
+
+
+python run_squad.py --model_type bert --model_name_or_path bert-base-cased --do_train --do_eval --do_lower_case --train_file $SQUAD_DIR/train-v1.1.json --predict_file $SQUAD_DIR/dev-v1.1.json --per_gpu_train_batch_size 12 --learning_rate 3e-5 --num_train_epochs 2.0 --max_seq_length 384 --doc_stride 128 --output_dir /tmp/debug_squad/
